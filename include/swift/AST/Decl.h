@@ -5876,8 +5876,8 @@ protected:
                        bool HasImplicitSelfDecl,
                        GenericParamList *GenericParams)
       : GenericContext(DeclContextKind::AbstractFunctionDecl, Parent, GenericParams),
-        ValueDecl(Kind, Parent, Name, NameLoc),
-        Body(nullptr), AsyncLoc(AsyncLoc), ThrowsLoc(ThrowsLoc) {
+        ValueDecl(Kind, Parent, Name, NameLoc), Body(nullptr),
+        AsyncLoc(AsyncLoc), ThrowsLoc(ThrowsLoc), ThrowsType(ThrowsType) {
     setBodyKind(BodyKind::None);
     Bits.AbstractFunctionDecl.HasImplicitSelfDecl = HasImplicitSelfDecl;
     Bits.AbstractFunctionDecl.Overridden = false;
