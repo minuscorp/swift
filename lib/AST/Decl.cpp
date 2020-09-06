@@ -2641,6 +2641,9 @@ static Type mapSignatureFunctionType(ASTContext &ctx, Type type,
     AnyFunctionType::Param newParam(newParamType, param.getLabel(), newFlags);
     newParams.push_back(newParam);
   }
+  
+  // Map the throws type, if any.
+  auto throwsTy = mapSignatureParamType(ctx, funcTy->getThrowsType());
 
   // Map the result type.
   auto resultTy = mapSignatureFunctionType(
@@ -2655,9 +2658,9 @@ static Type mapSignatureFunctionType(ASTContext &ctx, Type type,
   // Rebuild the resulting function type.
   if (auto genericFuncTy = dyn_cast<GenericFunctionType>(funcTy))
     return GenericFunctionType::get(genericFuncTy->getGenericSignature(),
-                                    newParams, resultTy, info);
+                                    newParams, resultTy, throwsTy, info);
 
-  return FunctionType::get(newParams, resultTy, info);
+  return FunctionType::get(newParams, resultTy, throwsTy, info);
 }
 
 OverloadSignature ValueDecl::getOverloadSignature() const {
@@ -7657,17 +7660,22 @@ Type ConstructorDecl::getInitializerInterfaceType() {
     return InitializerInterfaceType;
   }
 
-  auto funcTy = allocatorTy->castTo<AnyFunctionType>()->getResult();
+  auto funcTy = allocatorTy->castTo<AnyFunctionType>();
   assert(funcTy->is<FunctionType>());
+  
+  auto resultTy = funcTy->getResult();
+  assert(resultTy->is<FunctionType>());
+  
+  auto throwsTy = funcTy->getThrowsType();
 
   // Constructors have an initializer type that takes an instance
   // instead of a metatype.
   auto initSelfParam = computeSelfParam(this, /*isInitializingCtor=*/true);
   Type initFuncTy;
   if (auto sig = getGenericSignature())
-    initFuncTy = GenericFunctionType::get(sig, {initSelfParam}, funcTy);
+    initFuncTy = GenericFunctionType::get(sig, {initSelfParam}, funcTy, throwsTy);
   else
-    initFuncTy = FunctionType::get({initSelfParam}, funcTy);
+    initFuncTy = FunctionType::get({initSelfParam}, funcTy, throwsTy);
   InitializerInterfaceType = initFuncTy;
 
   return InitializerInterfaceType;
