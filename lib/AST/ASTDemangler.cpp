@@ -406,7 +406,11 @@ Type ASTBuilder::createFunctionType(
           .withAsync(flags.isAsync())
           .build();
 
-  return FunctionType::get(funcParams, output, einfo);
+  return FunctionType::get(funcParams, output,
+                           flags.isThrowing()
+                           ? Ctx.getErrorDecl()->getInterfaceType()
+                           : Ctx.getNeverType(),
+                           einfo);
 }
 
 static ParameterConvention

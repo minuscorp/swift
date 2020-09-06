@@ -3405,9 +3405,11 @@ static CanType copyOptionalityFromDerivedToBase(TypeConverter &tc,
       auto result = copyOptionalityFromDerivedToBase(tc,
                                                      derivedFunc.getResult(),
                                                      baseFunc.getResult());
-      return CanAnyFunctionType::get(baseFunc.getOptGenericSignature(),
-                                     llvm::makeArrayRef(params), result,
-                                     baseFunc->getExtInfo());
+      return
+          CanAnyFunctionType::get(baseFunc.getOptGenericSignature(),
+                                  llvm::makeArrayRef(params), result,
+                                  baseFunc->getThrowsType()->getCanonicalType(),
+                                  baseFunc->getExtInfo());
     }
   }
 
@@ -3481,6 +3483,7 @@ TypeConverter::getConstantOverrideInfo(TypeExpansionContext context,
         GenericFunctionType::get(genericSig,
                                  overrideInterfaceTy->getParams(),
                                  overrideInterfaceTy->getResult(),
+                                 overrideInterfaceTy->getThrowsType(),
                                  overrideInterfaceTy->getExtInfo())
           ->getCanonicalType());
   }
@@ -4004,7 +4007,7 @@ TypeConverter::getBridgedFunctionType(AbstractionPattern pattern,
                                        suppressOptional);
 
     return CanAnyFunctionType::get(genericSig, llvm::makeArrayRef(params),
-                                   result, t->getExtInfo());
+                                   result, t.getThrowsType(), t->getExtInfo());
   }
   }
   llvm_unreachable("bad calling convention");
@@ -4086,6 +4089,8 @@ TypeConverter::getLoweredFormalTypes(SILDeclRef constant,
   auto bridging = Bridgeability::Full;
 
   unsigned numParameterLists = constant.getParameterListCount();
+
+  auto throwsTy = fnType->getThrowsType()->getCanonicalType();
 
   // Form an abstraction pattern for bridging purposes.
   AbstractionPattern bridgingFnPattern =
@@ -4184,24 +4189,32 @@ TypeConverter::getLoweredFormalTypes(SILDeclRef constant,
   // Build the curried function type.
   auto inner =
     CanFunctionType::get(llvm::makeArrayRef(bridgedParams),
-                         bridgedResultType, innerExtInfo);
+                         bridgedResultType,
+                         fnType->getThrowsType()->getCanonicalType(),
+                         innerExtInfo);
 
   auto curried =
-    CanAnyFunctionType::get(genericSig, {selfParam}, inner, extInfo);
+    CanAnyFunctionType::get(genericSig, {selfParam}, inner, throwsTy, extInfo);
 
   // Replace the type in the abstraction pattern with the curried type.
   bridgingFnPattern.rewriteType(genericSig, curried);
 
   // Build the uncurried function type.
-  if (innerExtInfo.isThrowing())
+  if (innerExtInfo.isThrowing()) {
     extInfo = extInfo.withThrows(true);
+    if (throwsTy == Context.getNeverType()) {
+      throwsTy = fnType->getThrowsType()->getCanonicalType();
+    } else {
+      throwsTy = Context.getErrorDecl()->getInterfaceType()->getCanonicalType();
+    }
+  }
 
   bridgedParams.push_back(selfParam);
 
   auto uncurried =
     CanAnyFunctionType::get(genericSig,
                             llvm::makeArrayRef(bridgedParams),
-                            bridgedResultType,
+                            bridgedResultType, throwsTy,
                             extInfo);
 
   return { bridgingFnPattern, uncurried };

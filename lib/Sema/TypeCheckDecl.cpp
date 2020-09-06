@@ -2350,9 +2350,9 @@ InterfaceTypeRequest::evaluate(Evaluator &eval, ValueDecl *D) const {
       auto info = infoBuilder.build();
 
       if (sig && !hasSelf) {
-        funcTy = GenericFunctionType::get(sig, argTy, resultTy, info);
+        funcTy = GenericFunctionType::get(sig, argTy, resultTy, throwsTy, info);
       } else {
-        funcTy = FunctionType::get(argTy, resultTy, info);
+        funcTy = FunctionType::get(argTy, resultTy, throwsTy, info);
       }
     }
 
@@ -2361,9 +2361,10 @@ InterfaceTypeRequest::evaluate(Evaluator &eval, ValueDecl *D) const {
       // Substitute in our own 'self' parameter.
       auto selfParam = computeSelfParam(AFD);
       if (sig)
-        funcTy = GenericFunctionType::get(sig, {selfParam}, funcTy);
+        funcTy = GenericFunctionType::get(sig, {selfParam}, funcTy,
+                                          Context.getNeverType());
       else
-        funcTy = FunctionType::get({selfParam}, funcTy);
+        funcTy = FunctionType::get({selfParam}, funcTy, Context.getNeverType());
     }
 
     return funcTy;
@@ -2379,9 +2380,10 @@ InterfaceTypeRequest::evaluate(Evaluator &eval, ValueDecl *D) const {
 
     Type funcTy;
     if (auto sig = SD->getGenericSignature())
-      funcTy = GenericFunctionType::get(sig, argTy, elementTy);
+      funcTy = GenericFunctionType::get(sig, argTy, elementTy,
+                                        Context.getNeverType());
     else
-      funcTy = FunctionType::get(argTy, elementTy);
+      funcTy = FunctionType::get(argTy, elementTy, Context.getNeverType());
 
     return funcTy;
   }
@@ -2401,13 +2403,14 @@ InterfaceTypeRequest::evaluate(Evaluator &eval, ValueDecl *D) const {
       SmallVector<AnyFunctionType::Param, 4> argTy;
       PL->getParams(argTy);
 
-      resultTy = FunctionType::get(argTy, resultTy);
+      resultTy = FunctionType::get(argTy, resultTy, Context.getNeverType());
     }
 
     if (auto genericSig = ED->getGenericSignature())
-      resultTy = GenericFunctionType::get(genericSig, {selfTy}, resultTy);
+      resultTy = GenericFunctionType::get(genericSig, {selfTy}, resultTy,
+                                          Context.getNeverType());
     else
-      resultTy = FunctionType::get({selfTy}, resultTy);
+      resultTy = FunctionType::get({selfTy}, resultTy, Context.getNeverType());
 
     return resultTy;
   }

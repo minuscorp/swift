@@ -2647,6 +2647,10 @@ static Type mapSignatureFunctionType(ASTContext &ctx, Type type,
     ctx, funcTy->getResult(), topLevelFunction, false, isInitializer,
     curryLevels - 1);
 
+  // Map the throws type.
+  auto throwsTy = mapSignatureParamType(ctx, funcTy->getThrowsType());
+
+
   // Map various attributes differently depending on if we're looking at
   // the declaration, or a function parameter type.
   AnyFunctionType::ExtInfo info = mapSignatureExtInfo(
@@ -2655,9 +2659,9 @@ static Type mapSignatureFunctionType(ASTContext &ctx, Type type,
   // Rebuild the resulting function type.
   if (auto genericFuncTy = dyn_cast<GenericFunctionType>(funcTy))
     return GenericFunctionType::get(genericFuncTy->getGenericSignature(),
-                                    newParams, resultTy, info);
+                                    newParams, resultTy, throwsTy, info);
 
-  return FunctionType::get(newParams, resultTy, info);
+  return FunctionType::get(newParams, resultTy, throwsTy, info);
 }
 
 OverloadSignature ValueDecl::getOverloadSignature() const {
@@ -7179,6 +7183,11 @@ void AbstractFunctionDecl::addDerivativeFunctionConfiguration(
   DerivativeFunctionConfigs->insert(config);
 }
 
+void FuncDecl::setThrowsInterfaceType(Type type) {
+  getASTContext().evaluator.cacheOutput(ThrowsTypeRequest{this},
+                                        std::move(type));
+}
+
 void FuncDecl::setResultInterfaceType(Type type) {
   getASTContext().evaluator.cacheOutput(ResultTypeRequest{this},
                                         std::move(type));
@@ -7214,14 +7223,15 @@ FuncDecl *FuncDecl::createImpl(ASTContext &Context,
 
 FuncDecl *FuncDecl::createDeserialized(ASTContext &Context,
                                        StaticSpellingKind StaticSpelling,
-                                       DeclName Name, bool Async, bool Throws, TypeRepr *ThrowsType,
+                                       DeclName Name, bool Async, bool Throws, Type ThrowsType,
                                        GenericParamList *GenericParams,
                                        Type FnRetType, DeclContext *Parent) {
   assert(FnRetType && "Deserialized result type must not be null");
   auto *const FD =
       FuncDecl::createImpl(Context, SourceLoc(), StaticSpelling, SourceLoc(),
                            Name, SourceLoc(), Async, SourceLoc(), Throws,
-                           SourceLoc(), ThrowsType, GenericParams, Parent, ClangNode());
+                           SourceLoc(), nullptr, GenericParams, Parent, ClangNode());
+  FD->setThrowsInterfaceType(ThrowsType);
   FD->setResultInterfaceType(FnRetType);
   return FD;
 }
@@ -7325,12 +7335,15 @@ AccessorDecl *
 AccessorDecl::createDeserialized(ASTContext &ctx, AccessorKind accessorKind,
                                  AbstractStorageDecl *storage,
                                  StaticSpellingKind staticSpelling,
-                                 bool throws, GenericParamList *genericParams,
+                                 bool throws, Type throwsType,
+                                 GenericParamList *genericParams,
                                  Type fnRetType, DeclContext *parent) {
   assert(fnRetType && "Deserialized result type must not be null");
   auto *const D = AccessorDecl::createImpl(
       ctx, SourceLoc(), SourceLoc(), accessorKind, storage, SourceLoc(),
-      staticSpelling, throws, SourceLoc(), nullptr, genericParams, parent, ClangNode());
+      staticSpelling, throws, SourceLoc(), nullptr, genericParams, parent,
+      ClangNode());
+  D->setThrowsInterfaceType(throwsType);
   D->setResultInterfaceType(fnRetType);
   return D;
 }
@@ -7342,7 +7355,8 @@ AccessorDecl *AccessorDecl::create(ASTContext &ctx,
                                    AbstractStorageDecl *storage,
                                    SourceLoc staticLoc,
                                    StaticSpellingKind staticSpelling,
-                                   bool throws, SourceLoc throwsLoc, TypeRepr *throwsType,
+                                   bool throws, SourceLoc throwsLoc,
+                                   TypeRepr *throwsType,
                                    GenericParamList *genericParams,
                                    ParameterList * bodyParams,
                                    Type fnRetType,
@@ -7667,17 +7681,23 @@ Type ConstructorDecl::getInitializerInterfaceType() {
     return InitializerInterfaceType;
   }
 
-  auto funcTy = allocatorTy->castTo<AnyFunctionType>()->getResult();
-  assert(funcTy->is<FunctionType>());
+  auto funcTy = allocatorTy->castTo<AnyFunctionType>();
+
+  auto resultTy = funcTy->getResult();
+  assert(resultTy->is<FunctionType>());
+
+
+  auto throwsTy = funcTy->getThrowsType();
 
   // Constructors have an initializer type that takes an instance
   // instead of a metatype.
   auto initSelfParam = computeSelfParam(this, /*isInitializingCtor=*/true);
   Type initFuncTy;
   if (auto sig = getGenericSignature())
-    initFuncTy = GenericFunctionType::get(sig, {initSelfParam}, funcTy);
+    initFuncTy = GenericFunctionType::get(sig, {initSelfParam}, resultTy,
+                                          throwsTy);
   else
-    initFuncTy = FunctionType::get({initSelfParam}, funcTy);
+    initFuncTy = FunctionType::get({initSelfParam}, resultTy, throwsTy);
   InitializerInterfaceType = initFuncTy;
 
   return InitializerInterfaceType;

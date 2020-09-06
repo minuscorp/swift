@@ -3014,6 +3014,8 @@ void AttributeChecker::visitFunctionBuilderAttr(FunctionBuilderAttr *attr) {
 
 void
 AttributeChecker::visitImplementationOnlyAttr(ImplementationOnlyAttr *attr) {
+  auto &ctx = D->getASTContext();
+
   if (isa<ImportDecl>(D)) {
     // These are handled elsewhere.
     return;
@@ -3055,12 +3057,14 @@ AttributeChecker::visitImplementationOnlyAttr(ImplementationOnlyAttr *attr) {
     auto derivedInterfaceFuncTy = derivedInterfaceTy->castTo<AnyFunctionType>();
     derivedInterfaceTy =
         FunctionType::get(derivedInterfaceFuncTy->getParams(),
-                          derivedInterfaceFuncTy->getResult());
+                          derivedInterfaceFuncTy->getResult(),
+                          ctx.getNeverType());
     auto overrideInterfaceFuncTy =
         overrideInterfaceTy->castTo<AnyFunctionType>();
     overrideInterfaceTy =
         FunctionType::get(overrideInterfaceFuncTy->getParams(),
-                          overrideInterfaceFuncTy->getResult());
+                          overrideInterfaceFuncTy->getResult(),
+                          ctx.getNeverType());
   }
 
   if (!derivedInterfaceTy->isEqual(overrideInterfaceTy)) {
@@ -3870,8 +3874,10 @@ static AnyFunctionType *
 makeFunctionType(ArrayRef<AnyFunctionType::Param> parameters, Type resultType,
                  GenericSignature genericSignature) {
   if (genericSignature)
-    return GenericFunctionType::get(genericSignature, parameters, resultType);
-  return FunctionType::get(parameters, resultType);
+    return GenericFunctionType::get(genericSignature, parameters, resultType,
+                                    resultType->getASTContext().getNeverType());
+  return FunctionType::get(parameters, resultType,
+                           resultType->getASTContext().getNeverType());
 }
 
 /// Computes the original function type corresponding to the given derivative

@@ -167,6 +167,7 @@ namespace {
     auto funcTy = pointeeType->castTo<FunctionType>();
     return {FunctionType::get(
                 funcTy->getParams(), funcTy->getResult(),
+                funcTy->getThrowsType(),
                 funcTy->getExtInfo()
                     .intoBuilder()
                     .withRepresentation(
@@ -491,6 +492,7 @@ namespace {
       auto rep = FunctionType::Representation::Block;
       auto funcTy =
           FunctionType::get(fTy->getParams(), fTy->getResult(),
+                            fTy->getThrowsType(),
                             fTy->getExtInfo().withRepresentation(rep));
       return { funcTy, ImportHint::Block };
     }
@@ -620,7 +622,9 @@ namespace {
       }
 
       // Form the function type.
-      return FunctionType::get(params, resultTy, FunctionType::ExtInfo());
+      return FunctionType::get(params, resultTy,
+                               resultTy->getASTContext().getNeverType(),
+                               FunctionType::ExtInfo());
     }
 
     ImportResult
@@ -632,7 +636,8 @@ namespace {
       if (!resultTy)
         return Type();
 
-      return FunctionType::get({}, resultTy);
+      return FunctionType::get({}, resultTy,
+                               resultTy->getASTContext().getNeverType());
     }
 
     ImportResult VisitParenType(const clang::ParenType *type) {
@@ -1640,6 +1645,7 @@ static Type applyNoEscape(Type type) {
   // Apply @noescape to function types.
   if (auto funcType = type->getAs<FunctionType>()) {
     return FunctionType::get(funcType->getParams(), funcType->getResult(),
+                             funcType->getThrowsType(),
                              funcType->getExtInfo().withNoEscape());
   }
 

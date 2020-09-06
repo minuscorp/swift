@@ -2997,7 +2997,7 @@ public:
     bool isObjC, hasForcedStaticDispatch, async, throws;
     unsigned numNameComponentsBiased;
     GenericSignatureID genericSigID;
-    TypeID resultInterfaceTypeID;
+    TypeID resultInterfaceTypeID, throwsInterfaceTypeID;
     bool isIUO;
     DeclID associatedDeclID;
     DeclID overriddenID;
@@ -3013,6 +3013,7 @@ public:
                                           rawMutModifier,
                                           hasForcedStaticDispatch,
                                           async, throws,
+                                          throwsInterfaceTypeID,
                                           genericSigID,
                                           resultInterfaceTypeID,
                                           isIUO,
@@ -3029,6 +3030,7 @@ public:
                                               isStatic, rawStaticSpelling, isObjC,
                                               rawMutModifier,
                                               hasForcedStaticDispatch, throws,
+                                              throwsInterfaceTypeID,
                                               genericSigID,
                                               resultInterfaceTypeID,
                                               isIUO,
@@ -3135,19 +3137,19 @@ public:
       return declOrOffset;
 
     const auto resultType = MF.getType(resultInterfaceTypeID);
-    // const auto throwsType = MF.getType(throwsTypeID); // How to retrieve the TypeRepr
+    const auto throwsType = MF.getType(throwsInterfaceTypeID);
     if (declOrOffset.isComplete())
       return declOrOffset;
 
     FuncDecl *fn;
     if (!isAccessor) {
       fn = FuncDecl::createDeserialized(ctx, staticSpelling.getValue(), name,
-                                        async, throws, nullptr, genericParams,
-                                        resultType, DC);
+                                        async, throws, throwsType,
+                                        genericParams, resultType, DC);
     } else {
       auto *accessor = AccessorDecl::createDeserialized(
           ctx, accessorKind, storage, staticSpelling.getValue(),
-          /*Throws=*/throws, genericParams, resultType, DC);
+          /*Throws=*/throws, throwsType, genericParams, resultType, DC);
       accessor->setIsTransparent(isTransparent);
 
       fn = accessor;
@@ -5002,7 +5004,7 @@ public:
   Expected<Type> deserializeAnyFunctionType(SmallVectorImpl<uint64_t> &scratch,
                                             StringRef blobData,
                                             bool isGeneric) {
-    TypeID resultID;
+    TypeID resultID, throwsTypeID;
     uint8_t rawRepresentation, rawDiffKind;
     bool noescape = false, async, throws;
     GenericSignature genericSig;
@@ -5011,12 +5013,12 @@ public:
     if (!isGeneric) {
       decls_block::FunctionTypeLayout::readRecord(
           scratch, resultID, rawRepresentation, clangTypeID,
-          noescape, async, throws, rawDiffKind);
+          noescape, async, throws, throwsTypeID, rawDiffKind);
     } else {
       GenericSignatureID rawGenericSig;
       decls_block::GenericFunctionTypeLayout::readRecord(
-          scratch, resultID, rawRepresentation, async, throws, rawDiffKind,
-          rawGenericSig);
+          scratch, resultID, rawRepresentation, async,
+          throws, throwsTypeID, rawDiffKind, rawGenericSig);
       genericSig = MF.getGenericSignature(rawGenericSig);
       clangTypeID = 0;
     }
@@ -5045,6 +5047,10 @@ public:
     auto resultTy = MF.getTypeChecked(resultID);
     if (!resultTy)
       return resultTy.takeError();
+
+    auto throwsTy = MF.getTypeChecked(throwsTypeID);
+    if (!throwsTy)
+      return throwsTy.takeError();
 
     SmallVector<AnyFunctionType::Param, 8> params;
     while (true) {
@@ -5084,11 +5090,12 @@ public:
 
     if (!isGeneric) {
       assert(genericSig.isNull());
-      return FunctionType::get(params, resultTy.get(), info);
+      return FunctionType::get(params, resultTy.get(), throwsTy.get(), info);
     }
 
     assert(!genericSig.isNull());
-    return GenericFunctionType::get(genericSig, params, resultTy.get(), info);
+    return GenericFunctionType::get(genericSig, params, resultTy.get(),
+                                    throwsTy.get(), info);
   }
 
   Expected<Type> deserializeFunctionType(SmallVectorImpl<uint64_t> &scratch,
