@@ -2332,6 +2332,7 @@ public:
       return GenericFunctionType::get(genericSig,
           erasedParams,
           eraseArchetypes(genericFuncType->getResult(), genericSig),
+          eraseArchetypes(genericFuncType->getThrowsType(), genericSig),
           genericFuncType->getExtInfo());
     }
 

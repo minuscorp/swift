@@ -5766,6 +5766,7 @@ public:
 /// Base class for function-like declarations.
 class AbstractFunctionDecl : public GenericContext, public ValueDecl {
   friend class NeedsNewVTableEntryRequest;
+  friend class ThrowsTypeRequest;
 
 public:
   enum class BodyKind {
@@ -5862,7 +5863,7 @@ protected:
   SourceLoc ThrowsLoc;
   
   /// Location of the type of the 'throws'.
-  TypeRepr *ThrowsType;
+  TypeLoc ThrowsType;
 
   struct {
     unsigned NeedsNewVTableEntryComputed : 1;
@@ -5875,8 +5876,8 @@ protected:
                        bool HasImplicitSelfDecl,
                        GenericParamList *GenericParams)
       : GenericContext(DeclContextKind::AbstractFunctionDecl, Parent, GenericParams),
-        ValueDecl(Kind, Parent, Name, NameLoc),
-        Body(nullptr), AsyncLoc(AsyncLoc), ThrowsLoc(ThrowsLoc) {
+        ValueDecl(Kind, Parent, Name, NameLoc), Body(nullptr),
+        AsyncLoc(AsyncLoc), ThrowsLoc(ThrowsLoc), ThrowsType(ThrowsType) {
     setBodyKind(BodyKind::None);
     Bits.AbstractFunctionDecl.HasImplicitSelfDecl = HasImplicitSelfDecl;
     Bits.AbstractFunctionDecl.Overridden = false;
@@ -5962,11 +5963,13 @@ public:
 
   /// Returns true if the function body throws.
   bool hasThrows() const { return Bits.AbstractFunctionDecl.Throws; }
-  
-  /// Returns true if the function has a typed throw.
-  bool hasTypedThrows() const { return (Bits.AbstractFunctionDecl.Throws && ThrowsType != nullptr); }
 
-  TypeLoc getTypedThrow() const { return TypeLoc(ThrowsType); }
+  TypeLoc getThrowsType() const { return ThrowsType; }
+
+  TypeRepr *getThrowsTypeRepr() const { return ThrowsType.getTypeRepr(); }
+
+
+  Type getThrowsInterfaceType() const;
 
   // FIXME: Hack that provides names with keyword arguments for accessors.
   DeclName getEffectiveFullName() const;
@@ -6256,6 +6259,7 @@ protected:
     Bits.FuncDecl.HasTopLevelLocalContextCaptures = false;
   }
 
+  void setThrowsInterfaceType(Type type);
   void setResultInterfaceType(Type type);
 
 private:
@@ -6287,7 +6291,7 @@ public:
   /// Factory function only for use by deserialization.
   static FuncDecl *createDeserialized(ASTContext &Context,
                                       StaticSpellingKind StaticSpelling,
-                                      DeclName Name, bool Async, bool Throws, TypeRepr *ThrowsType,
+                                      DeclName Name, bool Async, bool Throws, Type ThrowsType,
                                       GenericParamList *GenericParams,
                                       Type FnRetType, DeclContext *Parent);
 
@@ -6481,7 +6485,7 @@ public:
                                           AccessorKind accessorKind,
                                           AbstractStorageDecl *storage,
                                           StaticSpellingKind staticSpelling,
-                                          bool throws,
+                                          bool throws, Type throwsType,
                                           GenericParamList *genericParams,
                                           Type fnRetType, DeclContext *parent);
 
