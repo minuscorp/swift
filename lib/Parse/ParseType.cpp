@@ -507,6 +507,7 @@ ParserResult<TypeRepr> Parser::parseType(Diag<> MessageID,
     
     throwsLoc = consumeToken();
     
+    
     ParserResult<TypeRepr> throwsTypeResult = parseThrowsType();
     
     throwsType = throwsTypeResult.getPtrOrNull();
@@ -544,8 +545,23 @@ ParserResult<TypeRepr> Parser::parseType(Diag<> MessageID,
       ParsedFunctionTypeSyntaxBuilder Builder(*SyntaxContext);
       Builder.useReturnType(std::move(*SyntaxContext->popIf<ParsedTypeSyntax>()));
       Builder.useArrow(SyntaxContext->popToken());
-      if (throwsLoc.isValid())
+      if (throwsLoc.isValid()) {
         Builder.useThrowsOrRethrowsKeyword(SyntaxContext->popToken());
+        if (throwsType) {
+          auto InputNode(std::move(*SyntaxContext->popIf<ParsedTypeSyntax>()));
+          if (auto ParenthesizedTypeNode = InputNode.getAs<ParsedParenthesizedExpressionSyntax>()) {
+            auto LeftParen = ParenthesizedTypeNode->getDeferredLeftParen();
+            auto Type = ParenthesizedTypeNode->getDeferredThrowsType();
+            auto RightParen = ParenthesizedTypeNode->getDeferredRightParen();
+            
+            ParsedParenthesizedExpressionSyntaxBuilder ThrowTypeBuilder(*SyntaxContext);
+            ThrowTypeBuilder.useLeftParen(std::move(LeftParen));
+            ThrowTypeBuilder.useThrowsType(std::move(Type));
+            ThrowTypeBuilder.useRightParen(std::move(RightParen));
+            Builder.useThrowsOrRethrowsType(ThrowTypeBuilder.build());
+          }
+        }
+      }
       if (asyncLoc.isValid())
         Builder.useAsyncKeyword(SyntaxContext->popToken());
 
@@ -657,7 +673,7 @@ ParserResult<TypeRepr> Parser::parseType(Diag<> MessageID,
       }
     }
 
-    tyR = new (Context) FunctionTypeRepr(generics, argsTyR, asyncLoc, throwsLoc,
+    tyR = new (Context) FunctionTypeRepr(generics, argsTyR, asyncLoc, throwsLoc, throwsType,
                                          arrowLoc, SecondHalf.get(),
                                          patternGenerics, patternSubsTypes,
                                          invocationSubsTypes);

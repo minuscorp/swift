@@ -131,8 +131,10 @@ static ParserStatus parseDefaultArgument(
   
   defaultArgs->HasDefaultArgument = true;
 
-  if (initR.hasCodeCompletion())
+  if (initR.hasCodeCompletion()) {
+    init = initR.get();
     return makeParserCodeCompletionStatus();
+  }
 
   if (initR.isNull())
     return makeParserError();
@@ -857,7 +859,7 @@ void Parser::parseAsyncThrows(SourceLoc existingArrowLoc, SourceLoc &asyncLoc,
     
     throwsType = throwsTypeResult.getPtrOrNull();
     
-    if (existingArrowLoc.isValid()) {
+    if (existingArrowLoc.isValid() && throwsLoc.isValid()) {
       diagnose(throwsLoc, diag::async_or_throws_in_wrong_position,
                rethrows ? (*rethrows ? 1 : 0) : 0)
         .fixItRemove(throwsLoc)
@@ -895,7 +897,7 @@ ParserResult<TypeRepr> Parser::parseThrowsType() {
     
     // we parse every type (including function types)
     ParserResult<TypeRepr> throwsTypeRepr = parseType(diag::expected_parenthesized_type_after_throws);
-    
+
     // if the closing parenthesis is missing, we backtrack and parse the type
     // again, this time excluding function types
     if (auto typeRepr = throwsTypeRepr.getPtrOrNull()) {
@@ -912,6 +914,9 @@ ParserResult<TypeRepr> Parser::parseThrowsType() {
     // Parse the closing ')'.
     SourceLoc rParenLoc;
     parseMatchingToken(tok::r_paren, rParenLoc, diag::expected_rparen_thrown_type, lParenLoc);
+    
+    if (throwsTypeRepr.hasCodeCompletion())
+      return makeParserCodeCompletionResult<TypeRepr>();
     
     return throwsTypeRepr;
   }
