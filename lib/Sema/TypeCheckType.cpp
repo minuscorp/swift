@@ -1726,6 +1726,10 @@ namespace {
         : resolution(resolution) {}
 
     NeverNullType resolveType(TypeRepr *repr, TypeResolutionOptions options);
+    
+    NeverNullType resolveThrowsType(bool functionHasThrows,
+                                    TypeRepr *repr,
+                                    TypeResolutionOptions options);
 
   private:
     ASTContext &getASTContext() const { return resolution.getASTContext(); }
@@ -1865,6 +1869,18 @@ Type ResolveTypeRequest::evaluate(Evaluator &evaluator,
     return ErrorType::get(ctx);
 
   return result;
+}
+
+NeverNullType TypeResolver::resolveThrowsType(bool functionHasThrows,
+                                              TypeRepr *repr,
+                                              TypeResolutionOptions options) {
+  if (!functionHasThrows)
+    return getASTContext().getNeverType();
+
+  if(!repr)
+    return getASTContext().getErrorDecl()->getInterfaceType();
+
+  return resolveType(repr, options);
 }
 
 NeverNullType TypeResolver::resolveType(TypeRepr *repr,
@@ -2693,7 +2709,7 @@ Type TypeResolver::resolveASTFunctionType(
 
   auto throwsOptions = options.withoutContext();
   throwsOptions.setContext(TypeResolverContext::FunctionThrows);
-  auto throwsTy = resolveType(repr->getThrowsType(), resultOptions);
+  auto throwsTy = resolveThrowsType(repr->isThrowing(), repr->getThrowsType(), throwsOptions);
   if (throwsTy->hasError()) {
     return ErrorType::get(getASTContext());
   }
@@ -2729,6 +2745,7 @@ Type TypeResolver::resolveASTFunctionType(
   }
   auto extInfo = extInfoBuilder.withRepresentation(representation)
                      .withAsync(repr->isAsync())
+                     .withThrows(repr->isThrowing())
                      .withClangFunctionType(clangFnType)
                      .build();
 

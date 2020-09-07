@@ -5042,6 +5042,7 @@ public:
     auto info = FunctionType::ExtInfoBuilder(*representation, noescape, throws,
                                              *diffKind, clangFunctionType)
                     .withAsync(async)
+                    .withThrows(throws)
                     .build();
 
     auto resultTy = MF.getTypeChecked(resultID);
@@ -5087,10 +5088,6 @@ public:
                                              isNonEphemeral, *ownership,
                                              isNoDerivative));
     }
-    
-    auto throwsTy = MF.getTypeChecked(throwsTypeID);
-    if (!throwsTy)
-      return throwsTy.takeError();
 
     if (!isGeneric) {
       assert(genericSig.isNull());
