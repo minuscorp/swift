@@ -1730,6 +1730,9 @@ namespace {
     NeverNullType resolveThrowsType(bool functionHasThrows,
                                     TypeRepr *repr,
                                     TypeResolutionOptions options);
+    
+    NeverNullType resolveTypeByString(StringRef type,
+                                      ASTContext &ctx);
 
   private:
     ASTContext &getASTContext() const { return resolution.getASTContext(); }
@@ -1874,13 +1877,28 @@ Type ResolveTypeRequest::evaluate(Evaluator &evaluator,
 NeverNullType TypeResolver::resolveThrowsType(bool functionHasThrows,
                                               TypeRepr *repr,
                                               TypeResolutionOptions options) {
-  if (!functionHasThrows)
-    return getASTContext().getNeverType();
+  if (!functionHasThrows) {
+    return resolveTypeByString("Never", getASTContext());
+  }
 
-  if(!repr)
-    return getASTContext().getErrorDecl()->getInterfaceType();
+  if(!repr) {
+    return resolveTypeByString("Error", getASTContext());
+  }
 
   return resolveType(repr, options);
+}
+
+NeverNullType TypeResolver::resolveTypeByString(StringRef type,
+                                                ASTContext &ctx) {
+  SmallVector<ValueDecl *, 1> Results;
+  ctx.lookupInSwiftModule(type, Results);
+  for (auto Result : Results) {
+    if (auto *FD = dyn_cast<FuncDecl>(Result)) {
+      if (FD->getDeclaredInterfaceType())
+        return FD->getDeclaredInterfaceType();
+    }
+  }
+  return ErrorType::get(getASTContext());
 }
 
 NeverNullType TypeResolver::resolveType(TypeRepr *repr,
