@@ -2649,7 +2649,7 @@ static Type mapSignatureFunctionType(ASTContext &ctx, Type type,
     if (auto afdThrowsTy = funcTy->getThrowsType()) {
       throwsType = afdThrowsTy;
     } else {
-      throwsType = ctx.getErrorDecl()->getDeclaredInterfaceType();
+      throwsType = ctx.getTypeByString("Never");
     }
   } else {
     SmallVector<ValueDecl *, 1> Results;
@@ -7287,6 +7287,7 @@ FuncDecl *FuncDecl::createImplicit(ASTContext &Context,
   FD->setImplicit();
   FD->setParameters(BodyParams);
   FD->setResultInterfaceType(FnRetType);
+  FD->setThrowsInterfaceType(TypeLoc(ThrowsType).getType());
   return FD;
 }
 
@@ -7303,6 +7304,7 @@ FuncDecl *FuncDecl::createImported(ASTContext &Context, SourceLoc FuncLoc,
       /*GenericParams=*/nullptr, Parent, ClangN);
   FD->setParameters(BodyParams);
   FD->setResultInterfaceType(FnRetType);
+  FD->setThrowsInterfaceType(TypeLoc(ThrowsType).getType());
   return FD;
 }
 
@@ -7391,6 +7393,7 @@ AccessorDecl *AccessorDecl::create(ASTContext &ctx,
       genericParams, parent, clangNode);
   D->setParameters(bodyParams);
   D->setResultInterfaceType(fnRetType);
+  D->setThrowsInterfaceType(TypeLoc(throwsType).getType());
   return D;
 }
 

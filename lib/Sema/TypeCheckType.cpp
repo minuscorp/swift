@@ -1882,7 +1882,7 @@ NeverNullType TypeResolver::resolveThrowsType(bool functionHasThrows,
   }
 
   if(!repr) {
-    return resolveTypeByString("Error", getASTContext());
+    return resolveTypeByString("Never", getASTContext());
   }
 
   return resolveType(repr, options);

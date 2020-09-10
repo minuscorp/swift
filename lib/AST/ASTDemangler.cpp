@@ -406,7 +406,7 @@ Type ASTBuilder::createFunctionType(
           .withAsync(flags.isAsync())
           .build();
   
-  auto throwsType = flags.isThrowing() ? Ctx.getErrorDecl()->getInterfaceType() : Ctx.getNeverType();
+  auto throwsType = Ctx.getNeverType();
   
   return FunctionType::get(funcParams, output, throwsType, einfo);
 }

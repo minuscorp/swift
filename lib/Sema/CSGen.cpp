@@ -2089,9 +2089,7 @@ namespace {
 
       #warning TODO: get correct throwing type from closure
       return FunctionType::get(closureParams, resultTy,
-                               extInfo.isThrowing()
-                               ? ctx.getErrorDecl()->getInterfaceType()
-                               : ctx.getNeverType(),
+                               ctx.getNeverType(),
                                extInfo);
     }
 
