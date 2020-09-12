@@ -3510,8 +3510,6 @@ public:
                                uint8_t(getStableSelfAccessKind(
                                                   fn->getSelfAccessKind())),
                                fn->hasForcedStaticDispatch(),
-                               fn->hasThrows(),
-                               S.addTypeRef(fn->getThrowsInterfaceType()),
                                S.addGenericSignatureRef(
                                                   fn->getGenericSignature()),
                                S.addTypeRef(fn->getResultInterfaceType()),
