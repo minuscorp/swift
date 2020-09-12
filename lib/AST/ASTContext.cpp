@@ -582,7 +582,12 @@ ASTContext::ASTContext(LangOptions &langOpts, TypeCheckerOptions &typeckOpts,
     TheErrorType(
       new (*this, AllocationArena::Permanent)
         ErrorType(*this, Type(), RecursiveTypeProperties::HasError)),
-    TheNeverType(getTypeByString("Never")),
+    TheNeverType(nullptr),
+//   TheNeverType([&] {
+//      auto decl = new (*this) EnumDecl(SourceLoc(), getIdentifier("Never"), SourceLoc(), { }, nullptr, nullptr);
+//      decl->setImplicit();
+//      return EnumType::get(cast<EnumDecl>(decl), ParenType(Type(), {}, {}), *this);
+//    }()),
     TheUnresolvedType(new (*this, AllocationArena::Permanent)
                       UnresolvedType(*this)),
     TheEmptyTupleType(TupleType::get(ArrayRef<TupleTypeElt>(), *this)),
@@ -957,7 +962,7 @@ ProtocolDecl *ASTContext::getProtocol(KnownProtocolKind kind) const {
 
 Type ASTContext::getTypeByString(StringRef type) {
   SmallVector<ValueDecl *, 1> Results;
-  getStdlibModule(true);
+//  getStdlibModule(true);
   lookupInSwiftModule(type, Results);
   for (auto Result : Results) {
     if (auto *FD = dyn_cast<NominalTypeDecl>(Result)) {
@@ -976,7 +981,7 @@ Type ASTContext::getTypeByString(StringRef type) {
       }
     }
   }
-  return Type();
+  return TheEmptyTupleType;
 }
 
 /// Find the implementation for the given "intrinsic" library function.
