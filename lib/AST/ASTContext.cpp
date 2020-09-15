@@ -63,6 +63,7 @@
 #include "llvm/Support/Compiler.h"
 #include <algorithm>
 #include <memory>
+#include <tuple>
 
 using namespace swift;
 
@@ -3182,8 +3183,9 @@ void FunctionType::Profile(llvm::FoldingSetNodeID &ID,
   profileParams(ID, params);
   ID.AddPointer(result.getPointer());
   auto infoKey = info.getFuncAttrKey();
-  ID.AddInteger(infoKey.first);
-  ID.AddPointer(infoKey.second);
+  ID.AddInteger(std::get<0>(infoKey));
+  ID.AddPointer(std::get<1>(infoKey));
+  ID.AddPointer(std::get<2>(infoKey));
 }
 
 FunctionType *FunctionType::get(ArrayRef<AnyFunctionType::Param> params,
@@ -3247,8 +3249,9 @@ void GenericFunctionType::Profile(llvm::FoldingSetNodeID &ID,
   profileParams(ID, params);
   ID.AddPointer(result.getPointer());
   auto infoKey = info.getFuncAttrKey();
-  ID.AddInteger(infoKey.first);
-  ID.AddPointer(infoKey.second);
+  ID.AddInteger(std::get<0>(infoKey));
+  ID.AddPointer(std::get<1>(infoKey));
+  ID.AddPointer(std::get<2>(infoKey));
 }
 
 GenericFunctionType *GenericFunctionType::get(GenericSignature sig,
