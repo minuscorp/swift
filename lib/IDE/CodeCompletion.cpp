@@ -2332,7 +2332,6 @@ public:
       return GenericFunctionType::get(genericSig,
           erasedParams,
           eraseArchetypes(genericFuncType->getResult(), genericSig),
-          eraseArchetypes(genericFuncType->getThrowsType(), genericSig),
           genericFuncType->getExtInfo());
     }
 
@@ -2681,7 +2680,7 @@ public:
                         const AbstractFunctionDecl *AFD) {
     if (AFD && AFD->getAttrs().hasAttribute<RethrowsAttr>())
       Builder.addAnnotatedRethrows();
-    else if (AFT->isThrowing())
+    else if (AFT->getExtInfo().getThrowsKind() == ThrowsInfo::Kind::Untyped)
       Builder.addAnnotatedThrows();
   }
 

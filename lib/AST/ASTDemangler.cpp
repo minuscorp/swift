@@ -401,14 +401,16 @@ Type ASTBuilder::createFunctionType(
                                                  representation);
 
   auto einfo =
-      FunctionType::ExtInfoBuilder(representation, noescape, flags.isThrowing(),
-                                   diffKind, clangFunctionType)
+      FunctionType::ExtInfoBuilder::get()
+          .withRepresentation(representation)
+          .withNoEscape(noescape)
+          .withThrows(flags.isThrowing(), Type())
+          .withDifferentiabilityKind(diffKind)
+          .withClangFunctionType(clangFunctionType)
           .withAsync(flags.isAsync())
           .build();
-  
-  auto throwsType = Ctx.getNeverType();
-  
-  return FunctionType::get(funcParams, output, throwsType, einfo);
+    
+  return FunctionType::get(funcParams, output, einfo);
 }
 
 static ParameterConvention

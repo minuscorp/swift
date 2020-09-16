@@ -2315,7 +2315,8 @@ InterfaceTypeRequest::evaluate(Evaluator &eval, ValueDecl *D) const {
     auto sig = AFD->getGenericSignature();
     bool hasSelf = AFD->hasImplicitSelfDecl();
 
-    AnyFunctionType::ExtInfoBuilder infoBuilder;
+    AnyFunctionType::ExtInfoBuilder infoBuilder =
+      AnyFunctionType::ExtInfoBuilder::get();
 
     // Result
     Type resultTy;
@@ -2328,9 +2329,6 @@ InterfaceTypeRequest::evaluate(Evaluator &eval, ValueDecl *D) const {
       resultTy = TupleType::getEmpty(AFD->getASTContext());
     }
 
-    // Throws type
-    Type throwsTy = AFD->getThrowsInterfaceType();
-
     // (Args...) -> Result
     Type funcTy;
 
@@ -2340,16 +2338,16 @@ InterfaceTypeRequest::evaluate(Evaluator &eval, ValueDecl *D) const {
 
       infoBuilder = infoBuilder.withAsync(AFD->hasAsync());
       // 'throws' only applies to the innermost function.
-      infoBuilder = infoBuilder.withThrows(AFD->hasThrows());
+      infoBuilder = infoBuilder.withThrows(AFD->hasThrows(), Type());
       // Defer bodies must not escape.
       if (auto fd = dyn_cast<FuncDecl>(D))
         infoBuilder = infoBuilder.withNoEscape(fd->isDeferBody());
       auto info = infoBuilder.build();
 
       if (sig && !hasSelf) {
-        funcTy = GenericFunctionType::get(sig, argTy, resultTy, throwsTy, info);
+        funcTy = GenericFunctionType::get(sig, argTy, resultTy, info);
       } else {
-        funcTy = FunctionType::get(argTy, resultTy, throwsTy, info);
+        funcTy = FunctionType::get(argTy, resultTy, info);
       }
     }
 
@@ -2358,10 +2356,9 @@ InterfaceTypeRequest::evaluate(Evaluator &eval, ValueDecl *D) const {
       // Substitute in our own 'self' parameter.
       auto selfParam = computeSelfParam(AFD);
       if (sig)
-        funcTy = GenericFunctionType::get(sig, {selfParam}, funcTy,
-                                          Context.getNeverType());
+        funcTy = GenericFunctionType::get(sig, {selfParam}, funcTy);
       else
-        funcTy = FunctionType::get({selfParam}, funcTy, Context.getNeverType());
+        funcTy = FunctionType::get({selfParam}, funcTy);
     }
 
     return funcTy;
@@ -2377,10 +2374,9 @@ InterfaceTypeRequest::evaluate(Evaluator &eval, ValueDecl *D) const {
 
     Type funcTy;
     if (auto sig = SD->getGenericSignature())
-      funcTy = GenericFunctionType::get(sig, argTy, elementTy,
-                                        Context.getNeverType());
+      funcTy = GenericFunctionType::get(sig, argTy, elementTy);
     else
-      funcTy = FunctionType::get(argTy, elementTy, Context.getNeverType());
+      funcTy = FunctionType::get(argTy, elementTy);
 
     return funcTy;
   }
@@ -2400,14 +2396,13 @@ InterfaceTypeRequest::evaluate(Evaluator &eval, ValueDecl *D) const {
       SmallVector<AnyFunctionType::Param, 4> argTy;
       PL->getParams(argTy);
 
-      resultTy = FunctionType::get(argTy, resultTy, Context.getNeverType());
+      resultTy = FunctionType::get(argTy, resultTy);
     }
 
     if (auto genericSig = ED->getGenericSignature())
-      resultTy = GenericFunctionType::get(genericSig, {selfTy}, resultTy,
-                                          Context.getNeverType());
+      resultTy = GenericFunctionType::get(genericSig, {selfTy}, resultTy);
     else
-      resultTy = FunctionType::get({selfTy}, resultTy, Context.getNeverType());
+      resultTy = FunctionType::get({selfTy}, resultTy);
 
     return resultTy;
   }

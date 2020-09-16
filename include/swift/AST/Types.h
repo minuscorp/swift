@@ -3102,6 +3102,11 @@ public:
 
   bool isAsync() const { return getExtInfo().isAsync(); }
 
+  // TODO: Fix this
+  bool isThrowing() const {
+    return getExtInfo().getThrowsKind() == ThrowsInfo::Kind::Untyped;
+  }
+
   bool isDifferentiable() const { return getExtInfo().isDifferentiable(); }
   DifferentiabilityKind getDifferentiabilityKind() const {
     return getExtInfo().getDifferentiabilityKind();
@@ -3205,7 +3210,7 @@ public:
   }
       
 private:
-  FunctionType(ArrayRef<Param> params, Type result, Type throwsType, ExtInfo info,
+  FunctionType(ArrayRef<Param> params, Type result, ExtInfo info,
                const ASTContext *ctx, RecursiveTypeProperties properties);
 };
 BEGIN_CAN_TYPE_WRAPPER(FunctionType, AnyFunctionType)

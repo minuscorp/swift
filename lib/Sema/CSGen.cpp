@@ -971,8 +971,7 @@ namespace {
       // Add the constraint that the index expression's type be convertible
       // to the input type of the subscript operator.
       CS.addConstraint(ConstraintKind::ApplicableFunction,
-                       FunctionType::get(params, outputTy,
-                                         CS.getASTContext().getNeverType()),
+                       FunctionType::get(params, outputTy),
                        memberTy,
                        fnLocator);
 
@@ -1240,8 +1239,7 @@ namespace {
 
       CS.addConstraint(
           ConstraintKind::ApplicableFunction,
-          FunctionType::get(args, resultType,
-                            CS.getASTContext().getNeverType()),
+          FunctionType::get(args, resultType),
           memberType,
           CS.getConstraintLocator(expr, ConstraintLocator::ApplyFunction));
 
@@ -2089,7 +2087,6 @@ namespace {
 
       #warning TODO: get correct throwing type from closure
       return FunctionType::get(closureParams, resultTy,
-                               ctx.getNeverType(),
                                extInfo);
     }
 
@@ -2478,8 +2475,7 @@ namespace {
               CS.getConstraintLocator(locator),
               TVO_CanBindToNoEscape);
           Type functionType =
-              FunctionType::get(params, outputType,
-                                CS.getASTContext().getNeverType());
+            FunctionType::get(params, outputType);
           CS.addConstraint(
               ConstraintKind::Equal, functionType, memberType,
               locator.withPathElement(LocatorPathElt::PatternMatch(pattern)));
@@ -2698,8 +2694,8 @@ namespace {
       bool throws = expr->getThrowsLoc().isValid();
       bool async = expr->getAsyncLoc().isValid();
       if (throws || async) {
-        return ASTExtInfoBuilder()
-          .withThrows(throws)
+        return ASTExtInfoBuilder::get()
+          .withThrows(throws, Type())
           .withAsync(async)
           .build();
       }
@@ -2713,8 +2709,8 @@ namespace {
       body->walk(throwFinder);
       auto asyncFinder = FindInnerAsync();
       body->walk(asyncFinder);
-      return ASTExtInfoBuilder()
-        .withThrows(throwFinder.foundThrow())
+      return ASTExtInfoBuilder::get()
+        .withThrows(throwFinder.foundThrow(), Type())
         .withAsync(asyncFinder.foundAsync())
         .build();
     }
@@ -2880,7 +2876,6 @@ namespace {
 
       CS.addConstraint(ConstraintKind::ApplicableFunction,
                        FunctionType::get(params, resultType,
-                                         CS.getASTContext().getNeverType(),
                                          extInfo),
                        CS.getType(expr->getFn()),
         CS.getConstraintLocator(expr, ConstraintLocator::ApplyFunction));
